@@ -40,10 +40,16 @@ rankhospital <- function(state, outcome, num = "best") {
 
   param_name <- paste0('hospital.30.day.death..mortality..rates.from.',gsub(' ','.',outcome))
   message(paste("parameter:", param_name))
+  # state-specific outcomes
   state_outcomes <- outcomes[outcomes$state == state,]
+  # filter bad outcomes
+  bad <- is.na(state_outcomes[param_name])
+  state_outcomes <- state_outcomes[!bad,]
+  
   ## Return hospital name in that state with the given rank
   sorted_outcomes <- arrange(state_outcomes,state_outcomes$param_name,hospital.name)
   sorted_outcomes$rank <- rank(sorted_outcomes[param_name],ties.method="first")
+  
   ## 30-day death rate
   if (!is.numeric(num)) {
     if (num == "best")
@@ -51,5 +57,7 @@ rankhospital <- function(state, outcome, num = "best") {
     else if (num == "worst")
       num <- max(sorted_outcomes$rank)
   }
-  sorted_outcomes[sorted_outcomes$rank==num,]
+  if(num < 1 || num > max(sorted_outcomes$rank))
+    return(NA)
+  sorted_outcomes[sorted_outcomes$rank==num,]$hospital.name
 }
