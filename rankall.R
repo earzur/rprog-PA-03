@@ -19,16 +19,26 @@ load_and_cleanup_outcomes <- function(path) {
   }
 }
 
+rankstate <- function(outcomes,state,param,num) {
+  state_outcomes <- outcomes[outcomes$state == state, c('state','hospital.name',param)]
+  state_outcomes <- state_outcomes[!is.na(state_outcomes[[param]]),]
+  state_outcomes <- arrange(state_outcomes,state_outcomes[[param]],hospital.name)
+  state_outcomes$rank <- rank(state_outcomes[[param]],ties.method='first')
+  if(!is.numeric(num)) {
+    if(num == "best")
+      num = 1
+    else if (num == "worst")
+      num = length(state_outcomes$rank)
+    else
+      error(paste0("invalid num specified !"))
+  }
+  state_outcomes[num,'hospital.name']
+}
 
-rankhospital <- function(state, outcome, num = "best") {
+rankall <- function(outcome, num = "best") {
   outcome <- tolower(outcome)
   ## Read outcome data
   outcomes <- load_and_cleanup_outcomes('data/outcome-of-care-measures.csv')
-  ## Check that state and outcome are valid
-  if(!any(outcomes$state == state))
-    stop("invalid state")
-
-  state_outcomes <- outcomes[outcomes$state == state,]
 
   # replace space with \\. in the outcome name, so matching is easier
   pat_outcome <- gsub(' ','\\.',outcome)
@@ -40,24 +50,11 @@ rankhospital <- function(state, outcome, num = "best") {
 
   param_name <- paste0('hospital.30.day.death..mortality..rates.from.',gsub(' ','.',outcome))
   message(paste("parameter:", param_name))
-  # state-specific outcomes
-  state_outcomes <- outcomes[outcomes$state == state,]
-  # filter bad outcomes
-  bad <- is.na(state_outcomes[param_name])
-  state_outcomes <- state_outcomes[!bad,]
   
-  ## Return hospital name in that state with the given rank
-  sorted_outcomes <- arrange(state_outcomes,state_outcomes[[param_name]],hospital.name)
-  sorted_outcomes$rank <- rank(sorted_outcomes[param_name],ties.method="first")
-  
-  ## 30-day death rate
-  if (!is.numeric(num)) {
-    if (num == "best")
-      num <- 1
-    else if (num == "worst")
-      num <- max(sorted_outcomes$rank)
+  result <- NULL
+  for (st in sort(unique(outcomes$state))) {
+    hospital <- rankstate(outcomes,st,param_name,num)
+    result <- rbind(result,data.frame(state=st,hospital=hospital))
   }
-  if(num < 1 || num > max(sorted_outcomes$rank))
-    return(NA)
-  sorted_outcomes[sorted_outcomes$rank==num,]$hospital.name
+  result
 }
