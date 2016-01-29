@@ -51,10 +51,28 @@ rankall <- function(outcome, num = "best") {
   param_name <- paste0('hospital.30.day.death..mortality..rates.from.',gsub(' ','.',outcome))
   message(paste("parameter:", param_name))
   
-  result <- NULL
-  for (st in sort(unique(outcomes$state))) {
-    hospital <- rankstate(outcomes,st,param_name,num)
-    result <- rbind(result,data.frame(state=st,hospital=hospital))
+  #result <- NULL
+  #for (st in sort(unique(outcomes$state))) {
+  #  hospital <- rankstate(outcomes,st,param_name,num)
+  #  result <- rbind(result,data.frame(state=st,hospital=hospital))
+  #}
+  #result
+  
+  ranked <- outcomes %>% 
+    select(state,hospital.name,eval(param_name)) %>%
+    group_by(state) %>%
+    mutate(rank = row_number(eval(param_name)))
+  
+  if(!is.numeric(num)){
+    if(num == "best")
+      num = 1
+    else if(num == "worst")
+      # we'll use eval(later) on num 
+      # because we are hackers and know about dynamic programming ;-)
+      num = as.call(list(max,rank))
   }
-  result
+  ranked %>% 
+    select(state,hospital.name) %>% 
+    filter(rank == eval(num)) %>%
+    arrange(state)  
 }
